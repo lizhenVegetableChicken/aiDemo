@@ -9,6 +9,128 @@ class LoginHandler:
         self.session = session
         self.base_url = "https://seller.kuajingmaihuo.com"
         
+    def get_anti_content(self):
+        """获取anti-content值"""
+        try:
+            # 等待页面完全加载
+            time.sleep(3)
+            
+            # 尝试从页面源码中查找anti-content相关信息
+            page_source = self.driver.page_source
+            if "anti" in page_source.lower():
+                print("找到anti相关信息，正在分析...")
+                
+            # 尝试执行页面上的所有script标签
+            scripts = self.driver.find_elements(By.TAG_NAME, "script")
+            for script in scripts:
+                src = script.get_attribute("src")
+                if src and ("anti" in src.lower() or "security" in src.lower()):
+                    print(f"找到可能相关的脚本: {src}")
+            
+            # 尝试多种可能的方式获取anti-content
+            scripts = [
+                "return window._anti_content;",  # 直接从window对象获取
+                "return document.querySelector('meta[name=\"anti-content\"]')?.content;",  # 从meta标签获取
+                "return localStorage.getItem('anti-content');",  # 从localStorage获取
+                "return sessionStorage.getItem('anti-content');",  # 从sessionStorage获取
+                "return window.localStorage.getItem('anti-content');",  # 从window.localStorage获取
+                """
+                for (let key in window) {
+                    if (key.toLowerCase().includes('anti')) {
+                        return window[key];
+                    }
+                }
+                return null;
+                """  # 遍历window对象
+            ]
+            
+            for script in scripts:
+                try:
+                    value = self.driver.execute_script(script)
+                    if value:
+                        print(f"成功获取anti-content: {value[:50]}...")  # 只打印前50个字符
+                        return value
+                except Exception as e:
+                    continue
+                    
+            # 如果上述方法都失败，尝试从Network面板获取
+            print("无法直接获取anti-content，请在开发者工具中查看请求头")
+            return None
+            
+        except Exception as e:
+            print(f"获取anti-content失败: {str(e)}")
+            return None
+            
+    def get_mall_id(self):
+        """获取商家ID"""
+        try:
+            # 等待页面完全加载
+            time.sleep(3)
+            
+            # 尝试从页面源码中查找mallId相关信息
+            page_source = self.driver.page_source
+            if "mallId" in page_source or "mall_id" in page_source:
+                print("找到mallId相关信息，正在分析...")
+            
+            # 尝试多种可能的方式获取mallid
+            scripts = [
+                "return window.mallId;",  # 直接从window对象获取
+                "return localStorage.getItem('mallId');",  # 从localStorage获取
+                "return document.querySelector('meta[name=\"mall-id\"]')?.content;",  # 从meta标签获取
+                "return sessionStorage.getItem('mallId');",  # 从sessionStorage获取
+                """
+                for (let key in window) {
+                    if (key.toLowerCase().includes('mall')) {
+                        return window[key];
+                    }
+                }
+                return null;
+                """,  # 遍历window对象
+                """
+                const scripts = document.getElementsByTagName('script');
+                for (let script of scripts) {
+                    const content = script.textContent;
+                    if (content && content.includes('mallId')) {
+                        const match = content.match(/mallId['":\s]+([^'"}\s]+)/);
+                        if (match) return match[1];
+                    }
+                }
+                return null;
+                """  # 从script标签内容中查找
+            ]
+            
+            for script in scripts:
+                try:
+                    value = self.driver.execute_script(script)
+                    if value:
+                        print(f"成功获取mallid: {value}")
+                        return value
+                except Exception as e:
+                    continue
+                    
+            # 如果上述方法都失败，尝试从URL或其他地方获取
+            current_url = self.driver.current_url
+            print(f"当前URL: {current_url}")
+            
+            # 尝试打印页面源码中包含mall的部分
+            if "mall" in page_source.lower():
+                print("页面源码中包含mall相关信息，正在分析...")
+                # 尝试找到包含mall的script标签
+                scripts = self.driver.find_elements(By.TAG_NAME, "script")
+                for script in scripts:
+                    try:
+                        content = script.get_attribute("textContent")
+                        if content and "mall" in content.lower():
+                            print("找到包含mall的脚本内容")
+                    except:
+                        continue
+            
+            return None
+            
+        except Exception as e:
+            print(f"获取mallid失败: {str(e)}")
+            return None
+            
     def login(self, username, password):
         """使用Selenium模拟登录"""
         try:
@@ -154,15 +276,23 @@ class LoginHandler:
             
             # 检查是否登录成功
             try:
-                time.sleep(2)  # 等待登录请求完成
+                time.sleep(4)  # 等待登录请求完成
                 current_url = self.driver.current_url
                 if "/main/" in current_url or "/settle/site-main" in current_url:
                     print("检测到登录成功，当前URL:", current_url)
+                    
                     # 获取所有cookies
                     cookies = self.driver.get_cookies()
+                    print(f"获取到 {len(cookies)} 个cookies")
+                    
                     # 将cookies添加到requests session中
                     for cookie in cookies:
-                        self.session.cookies.set(cookie['name'], cookie['value'])
+                        self.session.cookies.set(
+                            cookie['name'], 
+                            cookie['value'],
+                            domain=cookie.get('domain', ''),
+                            path=cookie.get('path', '/')
+                        )
                     return True
                 else:
                     print("登录失败，当前URL:", current_url)

@@ -1,47 +1,57 @@
 import requests
-from browser_handler import BrowserHandler
+import time
 from login_handler import LoginHandler
-from sku_handler import SkuHandler
+from browser_handler import BrowserHandler
 from navigation_handler import NavigationHandler
+from sku_handler import SkuHandler
 
 def main():
-    driver = None
+    # 创建session对象
+    session = requests.Session()
+    
+    # 初始化浏览器
+    driver, wait = BrowserHandler.init_browser()
+    
     try:
-        # 初始化浏览器
-        driver, wait = BrowserHandler.init_browser()
-        session = requests.Session()
-        
         # 登录处理
         login_handler = LoginHandler(driver, wait, session)
         username = '18237084494'
         password = 'Isa981213'
         
         if not login_handler.login(username, password):
-            print("登录失败，程序退出")
-            return
-        
-        # 导航到商品条码管理页面
-        print("开始导航到商品条码管理页面...")
-        navigation_handler = NavigationHandler(driver, wait)
-        if not navigation_handler.navigate_to_product_label():
-            print("导航到商品条码管理页面失败，程序退出")
+            print("登录失败")
             return
             
-        # SKU数据处理
-        sku_handler = SkuHandler(session)
-        all_skus = sku_handler.fetch_all_skus()
+        print("登录成功")
         
-        if all_skus:
-            sku_handler.save_to_file(all_skus)
-            print(f"共获取 {len(all_skus)} 条SKU数据")
+        # 导航到商品条码页面
+        navigation_handler = NavigationHandler(driver, wait)
+        if not navigation_handler.navigate_to_product_label():
+            print("导航失败")
+            return
+            
+        print("导航成功")
+        # 等待页面完全加载和权限初始化
+        time.sleep(5)
+        
+        # 获取SKU信息
+        sku_handler = SkuHandler(session)
+        all_sku_ids = sku_handler.fetch_all_skus()
+        
+        if all_sku_ids:
+            print(f"成功获取到 {len(all_sku_ids)} 个SKU ID")
+            # 保存到文件
+            sku_handler.save_to_file(all_sku_ids)
         else:
             print("未获取到SKU数据")
             
     except Exception as e:
         print(f"程序执行出错: {str(e)}")
     finally:
+        # 关闭浏览器
         if driver:
-            driver.quit()
+            print("关闭浏览器")
+            # driver.quit()
 
 if __name__ == "__main__":
     main() 
