@@ -155,8 +155,9 @@ class LoginHandler:
             # 检查是否登录成功
             try:
                 time.sleep(2)  # 等待登录请求完成
-                if "/main/" in self.driver.current_url:
-                    print("检测到登录成功")
+                current_url = self.driver.current_url
+                if "/main/" in current_url or "/settle/site-main" in current_url:
+                    print("检测到登录成功，当前URL:", current_url)
                     # 获取所有cookies
                     cookies = self.driver.get_cookies()
                     # 将cookies添加到requests session中
@@ -164,7 +165,7 @@ class LoginHandler:
                         self.session.cookies.set(cookie['name'], cookie['value'])
                     return True
                 else:
-                    print("登录可能失败，当前URL:", self.driver.current_url)
+                    print("登录失败，当前URL:", current_url)
                     return False
             except Exception as e:
                 print(f"检查登录状态时出错: {str(e)}")
