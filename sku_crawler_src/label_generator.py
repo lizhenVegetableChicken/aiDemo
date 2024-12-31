@@ -1,4 +1,4 @@
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 import fitz  # PyMuPDF
 import os
 from datetime import datetime
@@ -61,24 +61,72 @@ class LabelGenerator:
                 doc.close()
             return None
 
-    def merge_images(self, template_path, sku_image_path, output_path):
+    def write_sku_id(self, template_image, sku_id):
+        """将SKU ID写入到模板图片中"""
+        try:
+            # 创建可以在图片上绘制的对象
+            draw = ImageDraw.Draw(template_image)
+            
+            # 尝试加载Arial粗体字体，如果失败则尝试其他字体
+            try:
+                font = ImageFont.truetype("/System/Library/Fonts/Arial Bold.ttf", 52)
+            except:
+                try:
+                    font = ImageFont.truetype("/System/Library/Fonts/Arial.ttf", 52)
+                except:
+                    try:
+                        font = ImageFont.truetype("/Library/Fonts/Arial Bold.ttf", 52)
+                    except:
+                        font = ImageFont.load_default()
+            
+            # 获取模板尺寸
+            template_width, template_height = template_image.size
+            
+            # 计算写入位置（在"Batch Code:"后面）
+            text_x = int(template_width * 0.28)  # 左边距28%
+            text_y = int(template_height * 0.61)  # 距离顶部61.5%
+            
+            # 写入SKU ID（加粗效果）
+            # 通过轻微偏移多次绘制来实现描边加粗效果
+            offset = 1
+            for dx, dy in [(0,0), (offset,0), (0,offset), (offset,offset)]:
+                draw.text((text_x + dx, text_y + dy), f"{sku_id}", font=font, fill='black')
+            
+            return True
+            
+        except Exception as e:
+            print(f"写入SKU ID时出错: {str(e)}")
+            return False
+
+    def merge_images(self, template_path, sku_image_path, output_path, sku_id):
         """合并图片"""
         try:
             # 打开模板图片
             template = Image.open(template_path)
             if template.mode != 'RGB':
                 template = template.convert('RGB')
+                
+            # 获取模板尺寸
             template_width, template_height = template.size
-            print(f"模板图片尺寸: {template.size}")
+            
+            # 定义SKU区域的相对位置（百分比）
+            LEFT_MARGIN_RATIO = 30/1314    # 左边距占模板宽度的4%
+            TOP_MARGIN_RATIO = 165/1124     # 上边距占模板高度的25%
+            WIDTH_RATIO = 1250/1314          # SKU区域宽度占模板宽度的92%
+            HEIGHT_RATIO = 435/1124          # SKU区域高度占模板高度的35%
             
             # 打开SKU图片
             sku_image = Image.open(sku_image_path)
             if sku_image.mode != 'RGB':
                 sku_image = sku_image.convert('RGB')
             
-            # 定义SKU区域的位置和大小
-            # 调整这些值以更好地适应条形码
-            sku_box = (30, 165, 1250, 435)  # 左、上、右、下
+            # 计算实际的SKU区域位置
+            sku_box = (
+                int(template_width * LEFT_MARGIN_RATIO),   # 左
+                int(template_height * TOP_MARGIN_RATIO),   # 上
+                int(template_width * WIDTH_RATIO),        # 右
+                int(template_height * HEIGHT_RATIO)        # 下
+            )
             
             # 调整SKU图片大小以适应目标区域，保持宽高比
             target_width = sku_box[2] - sku_box[0]
@@ -104,6 +152,9 @@ class LabelGenerator:
             
             # 将SKU图片粘贴到模板上
             template.paste(sku_image, (paste_x, paste_y))
+            
+            # 写入SKU ID
+            self.write_sku_id(template, sku_id)
             
             # 将结果保存为PDF，使用高质量设置
             template.save(output_path, "PDF", resolution=300.0, quality=100)
@@ -134,8 +185,8 @@ class LabelGenerator:
             # 生成输出文件路径
             output_path = os.path.join(self.output_dir, f"label_{sku}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf")
             
-            # 合并图片
-            success = self.merge_images(self.template_path, sku_image, output_path)
+            # 合并图片，并传入SKU ID
+            success = self.merge_images(self.template_path, sku_image, output_path, sku)
             
             # 清理临时文件
             try:

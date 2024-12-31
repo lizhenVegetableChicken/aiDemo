@@ -35,7 +35,7 @@ class BrowserHandler:
                 "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
             })
             
-            wait = WebDriverWait(driver, 10)
+            wait = WebDriverWait(driver, 8)
             print("Chrome浏览器初始化成功")
             return driver, wait
             
