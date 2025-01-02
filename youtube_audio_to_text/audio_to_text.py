@@ -300,4 +300,6 @@ if __name__ == "__main__":
     if not OPENAI_API_KEY:
         print("错误：请设置环境变量 OPENAI_API_KEY")
         exit(1)
-    main("fushouer.mp3", openai_api_key=OPENAI_API_KEY)
+    print(OPENAI_API_KEY)
+    print(os.getcwd())
+    main("./youtube_audio_to_text/audio/被渣是我的错席瑞.mp3", openai_api_key=OPENAI_API_KEY)
